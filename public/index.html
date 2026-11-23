@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Email Tracker</title>
+<style>
+  :root{--bg:#f6f7f9;--card:#fff;--ink:#1a1d23;--mute:#6b7280;--line:#e5e7eb;--accent:#2563eb}
+  *{box-sizing:border-box}body{margin:0;font:14px/1.5 system-ui,sans-serif;background:var(--bg);color:var(--ink)}
+  header{display:flex;justify-content:space-between;align-items:center;padding:14px 24px;background:var(--card);border-bottom:1px solid var(--line)}
+  h1{font-size:16px;margin:0}main{max-width:1000px;margin:24px auto;padding:0 16px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:16px;margin-bottom:16px}
+  .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
+  .stat b{display:block;font-size:24px}.stat span{color:var(--mute);font-size:12px}
+  table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:8px;border-bottom:1px solid var(--line)}
+  th{color:var(--mute);font-weight:500;font-size:12px}tr.click{cursor:pointer}tr.click:hover{background:#f0f4ff}
+  button,input{font:inherit;padding:6px 10px;border:1px solid var(--line);border-radius:6px;background:#fff}
+  button{cursor:pointer;background:var(--accent);color:#fff;border-color:var(--accent)}button.ghost{background:#fff;color:var(--ink);border-color:var(--line)}
+  .mute{color:var(--mute)}.pill{padding:2px 8px;border-radius:99px;font-size:12px}.yes{background:#dcfce7;color:#166534}.no{background:#f3f4f6;color:#6b7280}
+  .bars{display:flex;align-items:flex-end;gap:3px;height:90px;margin-top:8px;overflow-x:auto}
+  .bar{min-width:14px;background:var(--accent);border-radius:3px 3px 0 0}
+  details summary{cursor:pointer;color:var(--accent)}details ul{margin:6px 0 0;padding-left:18px;color:var(--mute)}
+  .err{color:#b91c1c}
+</style>
+</head>
+<body>
+<header><h1>📬 Email Tracker</h1></header>
+<main id="app"></main>
+<script>
+const $ = s => document.querySelector(s), app = $('#app');
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmt = d => d ? new Date(d).toLocaleString() : '—';
+window.onhashchange = route;
+
+async function api(path) {
+  const r = await fetch(path);
+  if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || r.statusText);
+  return r.json();
+}
+const stat = (n, l) => `<div class="card stat"><b>${n}</b><span>${l}</span></div>`;
+const rate = (o, r) => r ? Math.round(o / r * 100) + '%' : '0%';
+
+async function route() {
+  const id = decodeURIComponent(location.hash.slice(1));
+  try { app.innerHTML = id ? await detail(id) : await list(); }
+  catch (e) { app.innerHTML = `<div class="card err">${esc(e.message)}</div>`; }
+}
+
+async function list() {
+  const rows = await api('/api/parents');
+  if (!rows.length) return '<div class="card mute">No tracked emails yet. Create a pixel with POST /api/pixels.</div>';
+  return `<div class="card"><table><tr><th>parent_id</th><th>Sent</th><th>Opened</th><th>Open rate</th><th>Total opens</th><th>Last open</th></tr>
+  ${rows.map(r => `<tr class="click" onclick="location.hash='${encodeURIComponent(r.parent_id)}'"><td>${esc(r.parent_id)}</td><td>${r.recipients}</td><td>${r.opened}</td><td>${rate(r.opened, r.recipients)}</td><td>${r.totalOpens}</td><td>${fmt(r.lastOpenedAt)}</td></tr>`).join('')}</table></div>`;
+}
+
+async function detail(id) {
+  const d = await api('/api/parents/' + encodeURIComponent(id));
+  const max = Math.max(1, ...d.timeline.map(t => t.opens));
+  return `<p><button class="ghost" onclick="location.hash=''">← All</button> <b>${esc(d.parent_id)}</b></p>
+  <div class="stats">${stat(d.recipients, 'Recipients')}${stat(d.opened, 'Opened')}${stat(rate(d.opened, d.recipients), 'Open rate')}${stat(d.totalOpens, 'Total opens')}</div>
+  <div class="card"><b>Opens per hour</b>${d.timeline.length ? `<div class="bars">${d.timeline.map(t => `<div class="bar" style="height:${t.opens / max * 100}%" title="${fmt(t.hour)}: ${t.opens}"></div>`).join('')}</div>` : '<p class="mute">No opens yet.</p>'}</div>
+  <div class="card"><table><tr><th>Email</th><th>Status</th><th>Opens</th><th>First opened</th><th>Last opened</th></tr>
+  ${d.emails.map(e => `<tr><td>${esc(e.email)}</td><td><span class="pill ${e.openCount ? 'yes' : 'no'}">${e.openCount ? 'Opened' : 'Not opened'}</span></td><td>${e.openCount}</td><td>${fmt(e.firstOpenedAt)}</td>
+  <td>${fmt(e.lastOpenedAt)}${e.opens.length ? `<details><summary>history</summary><ul>${e.opens.map(o => `<li>${fmt(o.at)}</li>`).join('')}</ul></details>` : ''}</td></tr>`).join('')}</table></div>`;
+}
+route();
+</script>
+</body>
+</html>

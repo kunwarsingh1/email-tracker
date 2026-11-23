@@ -1,0 +1,22 @@
+services:
+  mongo:
+    image: mongo:7
+    restart: unless-stopped
+    volumes:
+      - mongo-data:/data/db
+    ports:
+      - "27017:27017"
+  app:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      - mongo
+    ports:
+      - "${PORT:-3000}:3000"
+    environment:
+      PORT: 3000
+      MONGODB_URI: mongodb://mongo:27017/email_tracker
+      BASE_URL: ${BASE_URL:-http://localhost:3000}
+      ENABLE_SWAGGER: ${ENABLE_SWAGGER:-true}
+volumes:
+  mongo-data:
