@@ -180,7 +180,9 @@ app.get('/api/parents/:parentId', c => withPixels(c, async col => {
 
 app.onError((err, c) => {
   console.error(err);
-  return c.json({ error: 'Internal error' }, 500);
+  // Set DEBUG_ERRORS=true (temporarily) to see the underlying error in the response.
+  const debug = ['true', '1'].includes(String(c.env.DEBUG_ERRORS || '').trim().toLowerCase());
+  return c.json(debug ? { error: 'Internal error', detail: `${err.name}: ${err.message}` } : { error: 'Internal error' }, 500);
 });
 
 export default app;
