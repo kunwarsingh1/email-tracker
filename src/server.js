@@ -20,7 +20,9 @@ if (swaggerOn) {
   app.get('/openapi.json', (req, res) => res.json(spec));
   app.use('/docs', swaggerUi.serve, swaggerUi.setup(spec, { swaggerOptions: { persistAuthorization: true } }));
 }
-app.use(express.static(path.join(__dirname, '..', 'public')));
+// Dashboard lives at /dashboard; / redirects there.
+app.get('/dashboard', (req, res) => res.sendFile(path.join(__dirname, '..', 'public', 'index.html')));
+app.get('/', (req, res) => res.redirect('/dashboard'));
 app.use((err, req, res, next) => { console.error(err); res.status(500).json({ error: 'Internal error' }); });
 
 mongoose.connect(process.env.MONGODB_URI).then(async () => {

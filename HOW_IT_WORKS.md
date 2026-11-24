@@ -50,7 +50,7 @@ Key terms:
 4. `express.json()` parses JSON bodies.
 5. Routes are mounted from `routes/pixels.js`.
 6. If `ENABLE_SWAGGER` is `true` or `1` (case-insensitive), it mounts `/docs` (Swagger UI) and `/openapi.json`. Otherwise those paths do not exist.
-7. `express.static('public')` serves the dashboard at `/`.
+7. `GET /dashboard` serves `public/index.html` (the dashboard); `GET /` redirects to `/dashboard`.
 8. An error handler logs unexpected errors and returns `{"error":"Internal error"}` without leaking details.
 9. It connects to MongoDB **first**, and only then starts listening, so the service never accepts requests it can't store.
 
@@ -120,8 +120,8 @@ Pixels without a `parent_id` are skipped (`$match`). Sorted newest first, limite
 ## 7. Dashboard (`public/index.html`)
 
 A single static page with vanilla JavaScript: no framework, no build step, served by the same Express server, so there are no CORS issues.
-- **List view** (`/`): calls `/api/parents` and shows one row per campaign with open rate (`opened / recipients`). Clicking a row navigates to `#<parent_id>`.
-- **Detail view** (`/#<parent_id>`): calls `/api/parents/:id`; shows summary cards, the opens-per-hour bar chart (hover for exact values), and a per-recipient table with an expandable open history.
+- **List view** (`/dashboard`): calls `/api/parents` and shows one row per campaign with open rate (`opened / recipients`). Clicking a row navigates to `#<parent_id>`.
+- **Detail view** (`/dashboard#<parent_id>`): calls `/api/parents/:id`; shows summary cards, the opens-per-hour bar chart (hover for exact values), and a per-recipient table with an expandable open history.
 - Routing is the URL hash (`onhashchange`), so a campaign view is linkable/bookmarkable.
 - All values from the server go through an `esc()` function before being put into the HTML, which prevents HTML/script injection through email addresses or `parent_id`s or user agents (an attacker can control the user agent of a request to the public pixel).
 

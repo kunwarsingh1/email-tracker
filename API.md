@@ -4,6 +4,9 @@ Base URL: the value of `BASE_URL` (e.g. `https://track.example.com`).
 
 **Auth:** none. There is no login or API key, so restrict network access to the service (see HOW_IT_WORKS.md). Errors are always `{"error": "message"}`.
 
+## Dashboard
+`GET /dashboard` – the web dashboard (`GET /` redirects there). A campaign is linkable as `/dashboard#<parent_id>`.
+
 ## Interactive docs (Swagger UI)
 Set `ENABLE_SWAGGER=true` in `.env` and restart. Then:
 - `GET /docs` – Swagger UI
