@@ -81,20 +81,14 @@ app.post('/api/pixels', async c => {
 
 // ---- Step 2: link token -> parent_id (after sending) ----
 app.post('/api/pixels/link', async c => {
-  // Optional grouping: `thread_id` (explicit) or `in_reply_to` (parent_id of the earlier email in the thread).
-  const { token, parent_id, thread_id, in_reply_to } = await readJson(c);
+  // Optional grouping: emails linked with the same `thread_id` are shown together on the dashboard.
+  const { token, parent_id, thread_id } = await readJson(c);
   if (typeof token !== 'string' || !token.trim()) return c.json({ error: 'token is required' }, 400);
   if (typeof parent_id !== 'string' || !parent_id.trim()) return c.json({ error: 'parent_id is required' }, 400);
   const t = token.trim();
   const pid = parent_id.trim();
   return withPixels(c, async col => {
-    let thread = null;
-    if (typeof thread_id === 'string' && thread_id.trim()) {
-      thread = thread_id.trim();
-    } else if (typeof in_reply_to === 'string' && in_reply_to.trim()) {
-      const prev = await col.findOne({ parent_id: in_reply_to.trim() }, { projection: { thread_id: 1 } });
-      thread = (prev && prev.thread_id) || in_reply_to.trim();
-    }
+    const thread = typeof thread_id === 'string' && thread_id.trim() ? thread_id.trim() : null;
     const set = { parent_id: pid, updatedAt: new Date() };
     if (thread && thread !== pid) set.thread_id = thread;
     const doc = await col.findOneAndUpdate(

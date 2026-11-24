@@ -71,14 +71,13 @@ module.exports = function buildSpec(baseUrl = process.env.BASE_URL) {
         LinkPixel: {
           type: 'object', required: ['token', 'parent_id'],
           properties: { token: { type: 'string', example: '9f2c1a7e5b3d4c8a90e1f2a3b4c5d6e7' }, parent_id: { type: 'string', example: 'newsletter-nov' },
-            thread_id: { type: 'string', description: 'Optional. Emails sharing a thread_id are grouped together on the dashboard.', example: '<first-message-id@gmail.com>' },
-            in_reply_to: { type: 'string', description: 'Optional. parent_id of the earlier email this one replies to; the thread is derived automatically. Ignored if thread_id is given.', example: '<first-message-id@gmail.com>' } },
+            thread_id: { type: 'string', description: 'Optional. Emails sharing a thread_id are grouped together on the dashboard.', example: '<first-message-id@gmail.com>' } },
         },
         PixelResponse: {
           type: 'object',
           properties: {
             token: { type: 'string' }, email: { type: 'string' }, parent_id: { type: 'string', nullable: true, description: 'null until linked' },
-            thread_id: { type: 'string', nullable: true, description: 'Group id if linked with thread_id / in_reply_to' },
+            thread_id: { type: 'string', nullable: true, description: 'Group id if linked with a thread_id' },
             pixel_url: { type: 'string', example: 'https://track.example.com/t/9f2c1a7e5b3d4c8a90e1f2a3b4c5d6e7.gif' },
             html: { type: 'string', description: 'Ready-to-paste <img> tag', example: '<img src="https://track.example.com/t/abc.gif" width="1" height="1" alt="" style="display:none" />' },
           },

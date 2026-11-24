@@ -30,21 +30,15 @@ router.post('/api/pixels', async (req, res, next) => {
 });
 
 // Step 2 (after sending): attach the parent_id to the pixel's token.
-// Optional grouping: `thread_id` (explicit) or `in_reply_to` (parent_id of the earlier email in the thread).
+// Optional grouping: emails linked with the same `thread_id` are shown together on the dashboard.
 router.post('/api/pixels/link', async (req, res, next) => {
   try {
-    const { token, parent_id, thread_id, in_reply_to } = req.body || {};
+    const { token, parent_id, thread_id } = req.body || {};
     if (typeof token !== 'string' || !token.trim()) return res.status(400).json({ error: 'token is required' });
     if (typeof parent_id !== 'string' || !parent_id.trim()) return res.status(400).json({ error: 'parent_id is required' });
     const pid = parent_id.trim();
 
-    let thread = null;
-    if (typeof thread_id === 'string' && thread_id.trim()) {
-      thread = thread_id.trim();
-    } else if (typeof in_reply_to === 'string' && in_reply_to.trim()) {
-      const prev = await Pixel.findOne({ parent_id: in_reply_to.trim() }).select('thread_id').lean();
-      thread = (prev && prev.thread_id) || in_reply_to.trim();
-    }
+    const thread = typeof thread_id === 'string' && thread_id.trim() ? thread_id.trim() : null;
     const set = { parent_id: pid };
     if (thread && thread !== pid) set.thread_id = thread;
 
