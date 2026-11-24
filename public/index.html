@@ -30,6 +30,16 @@
 const $ = s => document.querySelector(s), app = $('#app');
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const fmt = d => d ? new Date(d).toLocaleString() : '—';
+const SRC = { 'google-proxy': 'Google image proxy', 'apple-proxy': 'Apple privacy proxy', 'yahoo-proxy': 'Yahoo proxy', scanner: 'Security scanner' };
+const where = o => [o.city, o.region, o.country].filter(Boolean).join(', ');
+function openLine(o) {
+  const bits = [fmt(o.at)];
+  const w = where(o);
+  if (w) bits.push(esc(w) + (SRC[o.source] ? ' <span class="mute">(proxy location, not the reader)</span>' : ''));
+  if (SRC[o.source]) bits.push('via ' + SRC[o.source]);
+  if (o.ip) bits.push(esc(o.ip));
+  return bits.join(' · ') + (o.owner ? ' <span class="pill no">you - not counted</span>' : '');
+}
 window.onhashchange = route;
 
 async function api(path) {
@@ -61,7 +71,7 @@ async function detail(id) {
   <div class="card"><b>Opens per hour</b>${d.timeline.length ? `<div class="bars">${d.timeline.map(t => `<div class="bar" style="height:${t.opens / max * 100}%" title="${fmt(t.hour)}: ${t.opens}"></div>`).join('')}</div>` : '<p class="mute">No opens yet.</p>'}</div>
   <div class="card"><table><tr><th>Email</th><th>Message id</th><th>Status</th><th>Opens</th><th>First opened</th><th>Last opened</th></tr>
   ${d.emails.map(e => `<tr><td>${esc(e.email)}</td><td class="mute">${esc(e.parent_id)}</td><td><span class="pill ${e.openCount ? 'yes' : 'no'}">${e.openCount ? 'Opened' : 'Not opened'}</span></td><td>${e.openCount}</td><td>${fmt(e.firstOpenedAt)}</td>
-  <td>${fmt(e.lastOpenedAt)}${e.opens.length ? `<details><summary>history</summary><ul>${e.opens.map(o => `<li>${fmt(o.at)}</li>`).join('')}</ul></details>` : ''}</td></tr>`).join('')}</table></div>`;
+  <td>${fmt(e.lastOpenedAt)}${e.opens.length ? `<details><summary>history</summary><ul>${e.opens.map(o => `<li>${openLine(o)}</li>`).join('')}</ul></details>` : ''}</td></tr>`).join('')}</table></div>`;
 }
 route();
 </script>

@@ -9,3 +9,5 @@ ENABLE_SWAGGER = "false"
 # Set these as secrets/variables (dashboard or `npx wrangler secret put`):
 #   MONGODB_URI  (secret, required)
 #   BASE_URL     (optional; defaults to the request's own origin)
+#   OWNER_IPS    (optional) comma-separated IPs that are you; those opens are flagged and not counted
+#   OWNER_CITIES (optional) comma-separated cities that are you, e.g. "Mumbai,Pune"; applies to non-proxy opens only

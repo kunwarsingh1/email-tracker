@@ -89,7 +89,18 @@ module.exports = function buildSpec(baseUrl = process.env.BASE_URL) {
             totalOpens: { type: 'integer' }, createdAt: { type: 'string', format: 'date-time' }, lastOpenedAt: { type: 'string', format: 'date-time', nullable: true },
           },
         },
-        OpenEvent: { type: 'object', properties: { at: { type: 'string', format: 'date-time' }, ip: { type: 'string' }, userAgent: { type: 'string' } } },
+        OpenEvent: {
+          type: 'object',
+          description: 'Location fields are only filled when running on Cloudflare Workers.',
+          properties: {
+            at: { type: 'string', format: 'date-time' }, ip: { type: 'string' }, userAgent: { type: 'string' },
+            source: { type: 'string', enum: ['direct', 'google-proxy', 'apple-proxy', 'yahoo-proxy', 'scanner'], description: 'Proxies fetch images for the reader, so their location is not the reader location' },
+            owner: { type: 'boolean', description: 'true if matched OWNER_IPS / OWNER_CITIES; stored but not counted' },
+            country: { type: 'string', nullable: true }, region: { type: 'string', nullable: true }, city: { type: 'string', nullable: true },
+            lat: { type: 'number', nullable: true }, lon: { type: 'number', nullable: true }, timezone: { type: 'string', nullable: true },
+            asn: { type: 'integer', nullable: true }, org: { type: 'string', nullable: true },
+          },
+        },
         EmailStats: {
           type: 'object',
           properties: {

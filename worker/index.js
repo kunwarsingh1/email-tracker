@@ -105,24 +105,49 @@ app.post('/api/pixels/link', async c => {
   });
 });
 
+// ---- Where did this open come from? ----
+// Mail proxies (Gmail, Apple, Yahoo) fetch images on the reader's behalf, so their location is the proxy's, not the person's.
+function classifySource(ua, asn, org) {
+  if (/GoogleImageProxy/i.test(ua) || asn === 15169) return 'google-proxy';
+  if (asn === 714 || asn === 6185 || /apple/i.test(org || '')) return 'apple-proxy';
+  if (/YahooMailProxy/i.test(ua)) return 'yahoo-proxy';
+  if (/(bot|crawler|spider|scanner|proofpoint|mimecast|barracuda|safelinks)/i.test(ua)) return 'scanner';
+  return 'direct';
+}
+const csv = v => String(v || '').split(',').map(x => x.trim().toLowerCase()).filter(Boolean);
+// "Me": an exact IP match (always reliable), or a direct (non-proxy) fetch from one of my cities.
+function isOwner(env, { ip, city, source }) {
+  if (ip && csv(env.OWNER_IPS).includes(ip.toLowerCase())) return true;
+  return source === 'direct' && !!city && csv(env.OWNER_CITIES).includes(city.toLowerCase());
+}
+const num = v => (v === undefined || v === null || v === '' || Number.isNaN(Number(v)) ? null : Number(v));
+
 // ---- Public tracking pixel ----
 app.get('/t/:file', c => {
   const file = c.req.param('file');
   if (!file.endsWith('.gif')) return c.notFound();
   const token = file.slice(0, -4);
   const now = new Date();
-  const open = { at: now, ip: c.req.header('cf-connecting-ip') || null, userAgent: c.req.header('user-agent') || null };
+  const cf = c.req.raw.cf || {};
+  const ip = c.req.header('cf-connecting-ip') || null;
+  const ua = c.req.header('user-agent') || '';
+  const source = classifySource(ua, cf.asn, cf.asOrganization);
+  const owner = isOwner(c.env, { ip, city: cf.city, source });
+  const open = {
+    at: now, ip, userAgent: ua || null, source, owner,
+    country: cf.country || null, region: cf.region || null, city: cf.city || null,
+    lat: num(cf.latitude), lon: num(cf.longitude), timezone: cf.timezone || null,
+    asn: cf.asn || null, org: cf.asOrganization || null,
+  };
+  const withOpen = { $slice: [{ $concatArrays: ['$opens', [open]] }, -MAX_OPENS] };
+  // Your own opens are stored (flagged) but do not count toward openCount / first / last opened.
+  const update = owner
+    ? { opens: withOpen, updatedAt: now }
+    : { opens: withOpen, openCount: { $add: ['$openCount', 1] }, firstOpenedAt: { $ifNull: ['$firstOpenedAt', now] }, lastOpenedAt: now, updatedAt: now };
   // Respond immediately; record the open in the background.
   c.executionCtx.waitUntil(
-    withPixels(c, col => col.updateOne({ token }, [{
-      $set: {
-        opens: { $slice: [{ $concatArrays: ['$opens', [open]] }, -MAX_OPENS] },
-        openCount: { $add: ['$openCount', 1] },
-        firstOpenedAt: { $ifNull: ['$firstOpenedAt', now] },
-        lastOpenedAt: now,
-        updatedAt: now,
-      },
-    }]), { indexes: false }).catch(e => console.error('track error', e.message))
+    withPixels(c, col => col.updateOne({ token }, [{ $set: update }]), { indexes: false })
+      .catch(e => console.error('track error', e.message))
   );
   return new Response(GIF, {
     headers: {
@@ -167,6 +192,7 @@ app.get('/api/parents/:parentId', c => withPixels(c, async col => {
   const timeline = {};
   for (const d of docs) {
     for (const o of d.opens || []) {
+      if (o.owner) continue; // your own opens are not counted
       const h = new Date(o.at);
       h.setUTCMinutes(0, 0, 0);
       const k = h.toISOString();

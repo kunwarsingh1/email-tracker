@@ -94,6 +94,13 @@ Detail for one campaign. `404` if no pixel is linked to the `parent_id`.
 
 ---
 
+## Location of an open
+On the Cloudflare Worker deployment each stored open also records `country`, `region`, `city`, `lat`, `lon`, `timezone`, `asn` and `org` (from Cloudflare, based on the IP), plus:
+- `source`: `direct`, `google-proxy`, `apple-proxy`, `yahoo-proxy` or `scanner`. Proxies download the image for the reader, so the location shown for them is the proxy's, not the person's.
+- `owner`: `true` if the open matches **your** settings. Owner opens are kept in the history but are **not counted** in `openCount`, first/last opened, or the timeline.
+
+Mark yourself with Worker variables: `OWNER_IPS` (comma-separated exact IPs) and `OWNER_CITIES` (comma-separated city names; only applied to `direct` opens). The Express/Docker version does not record location.
+
 ## Caveats
 - Apple Mail Privacy Protection and Gmail's image proxy may load the pixel automatically, inflating opens and masking real IPs.
 - Clients that block images will not register an open.

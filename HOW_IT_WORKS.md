@@ -127,6 +127,9 @@ A single static page with vanilla JavaScript: no framework, no build step, serve
 - Routing is the URL hash (`onhashchange`), so a campaign view is linkable/bookmarkable.
 - All values from the server go through an `esc()` function before being put into the HTML, which prevents HTML/script injection through email addresses or `parent_id`s or user agents (an attacker can control the user agent of a request to the public pixel).
 
+## 7b. Location and "was it me?" (Worker only)
+Cloudflare attaches `request.cf` to every request (country, region, city, coordinates, timezone, ASN and network name, derived from the IP). Each open stores these plus a `source` classification (direct, Google/Apple/Yahoo proxy, or security scanner) from the user agent and ASN. Proxies fetch images on the reader's behalf, so their location is the proxy's, not the person's; the dashboard labels those. An open is flagged `owner` if its IP is in `OWNER_IPS`, or it is a direct fetch from a city in `OWNER_CITIES`. Owner opens stay in the history but are excluded from `openCount`, first/last opened and the hourly timeline. IP geolocation is approximate (city level, sometimes wrong).
+
 ## 8. Swagger / API docs
 
 `src/openapi.js` exports a function that builds the OpenAPI 3.0.3 spec as a plain object (server URL from `BASE_URL`). `server.js` only loads `swagger-ui-express` and mounts `/docs` + `/openapi.json` when `ENABLE_SWAGGER` is true/1, so in production with the flag off the docs don't exist at all (404) and the library isn't even loaded.
