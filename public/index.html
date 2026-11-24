@@ -21,10 +21,13 @@
   .bar{min-width:14px;background:var(--accent);border-radius:3px 3px 0 0}
   details summary{cursor:pointer;color:var(--accent)}details ul{margin:6px 0 0;padding-left:18px;color:var(--mute)}
   .err{color:#b91c1c}
+  nav a{margin-left:8px;padding:6px 12px;border-radius:6px;color:var(--ink);text-decoration:none}
+  nav a.active{background:var(--accent);color:#fff}
 </style>
 </head>
 <body>
-<header><h1>📬 Email Tracker</h1></header>
+<header><h1>📬 Email Tracker</h1>
+  <nav><a id="tab-campaigns" href="#">Campaigns</a><a id="tab-locations" href="#/locations">Locations</a></nav></header>
 <main id="app"></main>
 <script>
 const $ = s => document.querySelector(s), app = $('#app');
@@ -52,8 +55,32 @@ const rate = (o, r) => r ? Math.round(o / r * 100) + '%' : '0%';
 
 async function route() {
   const id = decodeURIComponent(location.hash.slice(1));
-  try { app.innerHTML = id ? await detail(id) : await list(); }
+  const onLocations = id === '/locations';
+  $('#tab-locations').classList.toggle('active', onLocations);
+  $('#tab-campaigns').classList.toggle('active', !onLocations);
+  try { app.innerHTML = onLocations ? await locations() : id ? await detail(id) : await list(); }
   catch (e) { app.innerHTML = `<div class="card err">${esc(e.message)}</div>`; }
+}
+
+// Locations tab: where opens come from, at a glance.
+async function locations() {
+  const opens = await api('/api/opens?limit=200');
+  if (!opens.length) return '<div class="card mute">No opens recorded yet.</div>';
+  const label = o => where(o) || 'Unknown location';
+  const groups = {};
+  for (const o of opens) {
+    const k = label(o) + '|' + (o.source || 'direct');
+    const g = groups[k] || (groups[k] = { place: label(o), source: o.source, mine: 0, count: 0, last: o.at });
+    if (o.owner) g.mine++; else g.count++;
+  }
+  const summary = Object.values(groups).sort((a, b) => (b.count + b.mine) - (a.count + a.mine));
+  const srcCell = o => SRC[o.source] ? esc(SRC[o.source]) + ' <span class="mute">(proxy location)</span>' : 'Direct';
+  return `<div class="card"><b>Where opens come from</b> <span class="mute">(latest ${opens.length} opens)</span>
+  <table><tr><th>Location</th><th>Source</th><th>Opens</th><th>Yours (not counted)</th><th>Last</th></tr>
+  ${summary.map(g => `<tr><td>${esc(g.place)}</td><td>${srcCell(g)}</td><td>${g.count}</td><td>${g.mine || '—'}</td><td>${fmt(g.last)}</td></tr>`).join('')}</table></div>
+  <div class="card"><b>Latest opens</b>
+  <table><tr><th>When</th><th>Recipient</th><th>Campaign</th><th>Location</th><th>Source</th><th>IP</th></tr>
+  ${opens.map(o => `<tr class="click" onclick="location.hash='${encodeURIComponent(o.campaign)}'"><td>${fmt(o.at)}</td><td>${esc(o.email)}</td><td>${esc(o.campaign)}</td><td>${esc(label(o))}</td><td>${srcCell(o)}</td><td>${esc(o.ip || '')}${o.owner ? ' <span class="pill no">you</span>' : ''}</td></tr>`).join('')}</table></div>`;
 }
 
 async function list() {

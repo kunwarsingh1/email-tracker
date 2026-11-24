@@ -185,6 +185,19 @@ app.get('/api/parents', c => withPixels(c, async col => {
   })));
 }));
 
+// Latest opens across all campaigns (for the dashboard's Locations tab).
+app.get('/api/opens', c => withPixels(c, async col => {
+  const limit = Math.min(Math.max(Number(c.req.query('limit')) || 200, 1), 500);
+  const rows = await col.aggregate([
+    { $match: { parent_id: { $ne: null }, 'opens.0': { $exists: true } } },
+    { $unwind: '$opens' },
+    { $sort: { 'opens.at': -1 } },
+    { $limit: limit },
+    { $project: { _id: 0, email: 1, parent_id: 1, thread_id: 1, open: '$opens' } },
+  ]).toArray();
+  return c.json(rows.map(r => ({ email: r.email, campaign: r.thread_id || r.parent_id, message: r.parent_id, ...r.open })));
+}));
+
 app.get('/api/parents/:parentId', c => withPixels(c, async col => {
   const parentId = c.req.param('parentId');
   const docs = await col.find({ $or: [{ thread_id: parentId }, { thread_id: null, parent_id: parentId }] }).sort({ createdAt: 1 }).toArray();

@@ -108,6 +108,21 @@ router.get('/api/parents', async (req, res, next) => {
   } catch (e) { next(e); }
 });
 
+// Latest opens across all campaigns (for the dashboard's Locations tab).
+router.get('/api/opens', async (req, res, next) => {
+  try {
+    const limit = Math.min(Math.max(Number(req.query.limit) || 200, 1), 500);
+    const rows = await Pixel.aggregate([
+      { $match: { parent_id: { $ne: null }, 'opens.0': { $exists: true } } },
+      { $unwind: '$opens' },
+      { $sort: { 'opens.at': -1 } },
+      { $limit: limit },
+      { $project: { _id: 0, email: 1, parent_id: 1, thread_id: 1, open: '$opens' } },
+    ]);
+    res.json(rows.map(r => ({ email: r.email, campaign: r.thread_id || r.parent_id, message: r.parent_id, ...r.open })));
+  } catch (e) { next(e); }
+});
+
 // Dashboard: detail for one parent_id.
 router.get('/api/parents/:parentId', async (req, res, next) => {
   try {
