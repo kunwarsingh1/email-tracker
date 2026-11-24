@@ -53,6 +53,13 @@ Body:
 ```json
 { "token": "9f2c1a7e5b3d4c8a90e1f2a3b4c5d6e7", "parent_id": "newsletter-nov" }
 ```
+Optional grouping fields (for replies / nested emails, which have different parent_ids):
+- `thread_id`: any string. All emails linked with the same `thread_id` appear as **one row** on the dashboard.
+- `in_reply_to`: the `parent_id` of the earlier email in the thread. The thread is derived for you, so you only need the previous message's id. Ignored if `thread_id` is given.
+```json
+{ "token": "…", "parent_id": "<reply-id@gmail.com>", "in_reply_to": "<first-id@gmail.com>" }
+```
+The dashboard groups by `thread_id`, falling back to `parent_id`. Open `/dashboard#<first-id>` to see the whole thread.
 Response `200`: same shape as above, with `parent_id` filled in.
 Errors: `400` (missing token / parent_id), `404` (unknown token), `409` (token already linked to a different `parent_id`). Repeating the call with the same `parent_id` is fine.
 

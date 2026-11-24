@@ -70,12 +70,15 @@ module.exports = function buildSpec(baseUrl = process.env.BASE_URL) {
         },
         LinkPixel: {
           type: 'object', required: ['token', 'parent_id'],
-          properties: { token: { type: 'string', example: '9f2c1a7e5b3d4c8a90e1f2a3b4c5d6e7' }, parent_id: { type: 'string', example: 'newsletter-nov' } },
+          properties: { token: { type: 'string', example: '9f2c1a7e5b3d4c8a90e1f2a3b4c5d6e7' }, parent_id: { type: 'string', example: 'newsletter-nov' },
+            thread_id: { type: 'string', description: 'Optional. Emails sharing a thread_id are grouped together on the dashboard.', example: '<first-message-id@gmail.com>' },
+            in_reply_to: { type: 'string', description: 'Optional. parent_id of the earlier email this one replies to; the thread is derived automatically. Ignored if thread_id is given.', example: '<first-message-id@gmail.com>' } },
         },
         PixelResponse: {
           type: 'object',
           properties: {
             token: { type: 'string' }, email: { type: 'string' }, parent_id: { type: 'string', nullable: true, description: 'null until linked' },
+            thread_id: { type: 'string', nullable: true, description: 'Group id if linked with thread_id / in_reply_to' },
             pixel_url: { type: 'string', example: 'https://track.example.com/t/9f2c1a7e5b3d4c8a90e1f2a3b4c5d6e7.gif' },
             html: { type: 'string', description: 'Ready-to-paste <img> tag', example: '<img src="https://track.example.com/t/abc.gif" width="1" height="1" alt="" style="display:none" />' },
           },
@@ -83,7 +86,7 @@ module.exports = function buildSpec(baseUrl = process.env.BASE_URL) {
         ParentSummary: {
           type: 'object',
           properties: {
-            parent_id: { type: 'string' }, recipients: { type: 'integer' }, opened: { type: 'integer', description: 'Recipients with at least one open' },
+            parent_id: { type: 'string', description: 'Group id: the thread_id if the emails were grouped, otherwise the parent_id' }, messages: { type: 'integer', description: 'Distinct parent_ids (messages) in the group' }, recipients: { type: 'integer' }, opened: { type: 'integer', description: 'Recipients with at least one open' },
             totalOpens: { type: 'integer' }, createdAt: { type: 'string', format: 'date-time' }, lastOpenedAt: { type: 'string', format: 'date-time', nullable: true },
           },
         },
@@ -91,7 +94,7 @@ module.exports = function buildSpec(baseUrl = process.env.BASE_URL) {
         EmailStats: {
           type: 'object',
           properties: {
-            email: { type: 'string' }, sentAt: { type: 'string', format: 'date-time' }, openCount: { type: 'integer' },
+            email: { type: 'string' }, parent_id: { type: 'string', description: 'The parent_id of this individual email' }, sentAt: { type: 'string', format: 'date-time' }, openCount: { type: 'integer' },
             firstOpenedAt: { type: 'string', format: 'date-time', nullable: true }, lastOpenedAt: { type: 'string', format: 'date-time', nullable: true },
             opens: { type: 'array', description: 'Most recent 20 opens, newest first', items: { $ref: '#/components/schemas/OpenEvent' } },
           },

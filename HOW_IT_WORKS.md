@@ -91,6 +91,8 @@ There is none by design: no login, no API key. Every endpoint is open to anyone 
 ### 6.1b `POST /api/pixels/link`: map token to parent_id (step 2, after sending)
 The parent_id only exists once your mail system has sent the email, so it is attached in a second call. It takes `{token, parent_id}` and does one atomic update: set `parent_id` on the document with that token, but only if it is still unlinked or already has the same `parent_id`. If nothing matched, a second lookup tells `404` (unknown token) from `409` (token linked to a different parent_id). Repeating the call with the same values is harmless. Opens recorded before linking are kept and appear once the pixel is linked.
 
+**Grouping replies.** Each sent email has its own unique `parent_id` (e.g. its Message-ID), so a reply in a thread would show up as a separate campaign. The link call therefore accepts an optional `thread_id`, or `in_reply_to` (the earlier email's `parent_id`, from which the thread is derived: the earlier pixel's `thread_id` if it has one, otherwise `in_reply_to` itself). The dashboard list groups by `thread_id`, falling back to `parent_id`, and shows a **Messages** count per group. The detail endpoint for a group id returns every email whose `thread_id` equals it, plus the root email whose own `parent_id` equals it.
+
 ### 6.2 `GET /t/:token.gif`: the tracking pixel (public)
 This is the hot path, hit every time a recipient opens the email.
 1. **It responds first.** It sets headers and sends a hard-coded 1×1 transparent GIF (decoded from a base64 constant at startup) *before* touching the database. The email client is never slowed down or broken by a database hiccup, and unknown/invalid tokens look identical to valid ones (nothing is revealed to scanners).

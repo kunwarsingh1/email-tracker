@@ -13,6 +13,7 @@ function pixelPayload(doc) {
     token: doc.token,
     email: doc.email,
     parent_id: doc.parent_id,
+    thread_id: doc.thread_id || null,
     pixel_url: url,
     html: `<img src="${url}" width="1" height="1" alt="" style="display:none" />`,
   };
@@ -29,16 +30,28 @@ router.post('/api/pixels', async (req, res, next) => {
 });
 
 // Step 2 (after sending): attach the parent_id to the pixel's token.
+// Optional grouping: `thread_id` (explicit) or `in_reply_to` (parent_id of the earlier email in the thread).
 router.post('/api/pixels/link', async (req, res, next) => {
   try {
-    const { token, parent_id } = req.body || {};
+    const { token, parent_id, thread_id, in_reply_to } = req.body || {};
     if (typeof token !== 'string' || !token.trim()) return res.status(400).json({ error: 'token is required' });
     if (typeof parent_id !== 'string' || !parent_id.trim()) return res.status(400).json({ error: 'parent_id is required' });
     const pid = parent_id.trim();
+
+    let thread = null;
+    if (typeof thread_id === 'string' && thread_id.trim()) {
+      thread = thread_id.trim();
+    } else if (typeof in_reply_to === 'string' && in_reply_to.trim()) {
+      const prev = await Pixel.findOne({ parent_id: in_reply_to.trim() }).select('thread_id').lean();
+      thread = (prev && prev.thread_id) || in_reply_to.trim();
+    }
+    const set = { parent_id: pid };
+    if (thread && thread !== pid) set.thread_id = thread;
+
     // Succeeds if unlinked, or already linked to the same parent_id (idempotent).
     const doc = await Pixel.findOneAndUpdate(
       { token: token.trim(), $or: [{ parent_id: null }, { parent_id: pid }] },
-      { $set: { parent_id: pid } },
+      { $set: set },
       { new: true }
     );
     if (!doc) {
@@ -81,9 +94,12 @@ router.get('/api/parents', async (req, res, next) => {
   try {
     const rows = await Pixel.aggregate([
       { $match: { parent_id: { $ne: null } } },
+      // Group by thread (replies share one), falling back to the pixel's own parent_id.
+      { $addFields: { group: { $ifNull: ['$thread_id', '$parent_id'] } } },
       {
         $group: {
-          _id: '$parent_id',
+          _id: '$group',
+          messages: { $addToSet: '$parent_id' },
           recipients: { $sum: 1 },
           opened: { $sum: { $cond: [{ $gt: ['$openCount', 0] }, 1, 0] } },
           totalOpens: { $sum: '$openCount' },
@@ -94,14 +110,15 @@ router.get('/api/parents', async (req, res, next) => {
       { $sort: { createdAt: -1 } },
       { $limit: 500 },
     ]);
-    res.json(rows.map(r => ({ parent_id: r._id, recipients: r.recipients, opened: r.opened, totalOpens: r.totalOpens, createdAt: r.createdAt, lastOpenedAt: r.lastOpenedAt || null })));
+    res.json(rows.map(r => ({ parent_id: r._id, messages: r.messages.length, recipients: r.recipients, opened: r.opened, totalOpens: r.totalOpens, createdAt: r.createdAt, lastOpenedAt: r.lastOpenedAt || null })));
   } catch (e) { next(e); }
 });
 
 // Dashboard: detail for one parent_id.
 router.get('/api/parents/:parentId', async (req, res, next) => {
   try {
-    const docs = await Pixel.find({ parent_id: req.params.parentId }).sort({ createdAt: 1 }).lean();
+    const id = req.params.parentId;
+    const docs = await Pixel.find({ $or: [{ thread_id: id }, { thread_id: null, parent_id: id }] }).sort({ createdAt: 1 }).lean();
     if (!docs.length) return res.status(404).json({ error: 'parent_id not found' });
     const timeline = {};
     for (const d of docs) for (const o of d.opens) {
@@ -115,7 +132,7 @@ router.get('/api/parents/:parentId', async (req, res, next) => {
       totalOpens: docs.reduce((s, d) => s + d.openCount, 0),
       timeline: Object.entries(timeline).sort().map(([hour, opens]) => ({ hour, opens })),
       emails: docs.map(d => ({
-        email: d.email, sentAt: d.createdAt, openCount: d.openCount,
+        email: d.email, parent_id: d.parent_id, sentAt: d.createdAt, openCount: d.openCount,
         firstOpenedAt: d.firstOpenedAt || null, lastOpenedAt: d.lastOpenedAt || null,
         opens: d.opens.slice(-20).reverse(),
       })),

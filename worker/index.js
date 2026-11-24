@@ -20,6 +20,7 @@ function pixelPayload(c, doc) {
     token: doc.token,
     email: doc.email,
     parent_id: doc.parent_id ?? null,
+    thread_id: doc.thread_id ?? null,
     pixel_url: url,
     html: `<img src="${url}" width="1" height="1" alt="" style="display:none" />`,
   };
@@ -31,6 +32,7 @@ async function ensureIndexes(col) {
   if (indexesReady) return;
   await col.createIndex({ token: 1 }, { unique: true });
   await col.createIndex({ parent_id: 1 });
+  await col.createIndex({ thread_id: 1 });
   // Older versions had a unique (parent_id,email) index that breaks unlinked pixels.
   await col.dropIndex('parent_id_1_email_1').catch(() => {});
   indexesReady = true;
@@ -79,15 +81,25 @@ app.post('/api/pixels', async c => {
 
 // ---- Step 2: link token -> parent_id (after sending) ----
 app.post('/api/pixels/link', async c => {
-  const { token, parent_id } = await readJson(c);
+  // Optional grouping: `thread_id` (explicit) or `in_reply_to` (parent_id of the earlier email in the thread).
+  const { token, parent_id, thread_id, in_reply_to } = await readJson(c);
   if (typeof token !== 'string' || !token.trim()) return c.json({ error: 'token is required' }, 400);
   if (typeof parent_id !== 'string' || !parent_id.trim()) return c.json({ error: 'parent_id is required' }, 400);
   const t = token.trim();
   const pid = parent_id.trim();
   return withPixels(c, async col => {
+    let thread = null;
+    if (typeof thread_id === 'string' && thread_id.trim()) {
+      thread = thread_id.trim();
+    } else if (typeof in_reply_to === 'string' && in_reply_to.trim()) {
+      const prev = await col.findOne({ parent_id: in_reply_to.trim() }, { projection: { thread_id: 1 } });
+      thread = (prev && prev.thread_id) || in_reply_to.trim();
+    }
+    const set = { parent_id: pid, updatedAt: new Date() };
+    if (thread && thread !== pid) set.thread_id = thread;
     const doc = await col.findOneAndUpdate(
       { token: t, $or: [{ parent_id: null }, { parent_id: pid }] },
-      { $set: { parent_id: pid, updatedAt: new Date() } },
+      { $set: set },
       { returnDocument: 'after' }
     );
     if (!doc) {
@@ -132,9 +144,12 @@ app.get('/t/:file', c => {
 app.get('/api/parents', c => withPixels(c, async col => {
   const rows = await col.aggregate([
     { $match: { parent_id: { $ne: null } } },
+    // Group by thread (replies share one), falling back to the pixel's own parent_id.
+    { $addFields: { group: { $ifNull: ['$thread_id', '$parent_id'] } } },
     {
       $group: {
-        _id: '$parent_id',
+        _id: '$group',
+        messages: { $addToSet: '$parent_id' },
         recipients: { $sum: 1 },
         opened: { $sum: { $cond: [{ $gt: ['$openCount', 0] }, 1, 0] } },
         totalOpens: { $sum: '$openCount' },
@@ -146,14 +161,14 @@ app.get('/api/parents', c => withPixels(c, async col => {
     { $limit: 500 },
   ]).toArray();
   return c.json(rows.map(r => ({
-    parent_id: r._id, recipients: r.recipients, opened: r.opened, totalOpens: r.totalOpens,
+    parent_id: r._id, messages: r.messages.length, recipients: r.recipients, opened: r.opened, totalOpens: r.totalOpens,
     createdAt: r.createdAt, lastOpenedAt: r.lastOpenedAt || null,
   })));
 }));
 
 app.get('/api/parents/:parentId', c => withPixels(c, async col => {
   const parentId = c.req.param('parentId');
-  const docs = await col.find({ parent_id: parentId }).sort({ createdAt: 1 }).toArray();
+  const docs = await col.find({ $or: [{ thread_id: parentId }, { thread_id: null, parent_id: parentId }] }).sort({ createdAt: 1 }).toArray();
   if (!docs.length) return c.json({ error: 'parent_id not found' }, 404);
   const timeline = {};
   for (const d of docs) {
@@ -171,7 +186,7 @@ app.get('/api/parents/:parentId', c => withPixels(c, async col => {
     totalOpens: docs.reduce((s, d) => s + (d.openCount || 0), 0),
     timeline: Object.entries(timeline).sort().map(([hour, opens]) => ({ hour, opens })),
     emails: docs.map(d => ({
-      email: d.email, sentAt: d.createdAt, openCount: d.openCount || 0,
+      email: d.email, parent_id: d.parent_id, sentAt: d.createdAt, openCount: d.openCount || 0,
       firstOpenedAt: d.firstOpenedAt || null, lastOpenedAt: d.lastOpenedAt || null,
       opens: (d.opens || []).slice(-20).reverse(),
     })),

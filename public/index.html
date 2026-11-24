@@ -49,8 +49,8 @@ async function route() {
 async function list() {
   const rows = await api('/api/parents');
   if (!rows.length) return '<div class="card mute">No tracked emails yet. Create a pixel with POST /api/pixels.</div>';
-  return `<div class="card"><table><tr><th>parent_id</th><th>Sent</th><th>Opened</th><th>Open rate</th><th>Total opens</th><th>Last open</th></tr>
-  ${rows.map(r => `<tr class="click" onclick="location.hash='${encodeURIComponent(r.parent_id)}'"><td>${esc(r.parent_id)}</td><td>${r.recipients}</td><td>${r.opened}</td><td>${rate(r.opened, r.recipients)}</td><td>${r.totalOpens}</td><td>${fmt(r.lastOpenedAt)}</td></tr>`).join('')}</table></div>`;
+  return `<div class="card"><table><tr><th>parent_id / thread</th><th>Messages</th><th>Sent</th><th>Opened</th><th>Open rate</th><th>Total opens</th><th>Last open</th></tr>
+  ${rows.map(r => `<tr class="click" onclick="location.hash='${encodeURIComponent(r.parent_id)}'"><td>${esc(r.parent_id)}</td><td>${r.messages}</td><td>${r.recipients}</td><td>${r.opened}</td><td>${rate(r.opened, r.recipients)}</td><td>${r.totalOpens}</td><td>${fmt(r.lastOpenedAt)}</td></tr>`).join('')}</table></div>`;
 }
 
 async function detail(id) {
@@ -59,8 +59,8 @@ async function detail(id) {
   return `<p><button class="ghost" onclick="location.hash=''">← All</button> <b>${esc(d.parent_id)}</b></p>
   <div class="stats">${stat(d.recipients, 'Recipients')}${stat(d.opened, 'Opened')}${stat(rate(d.opened, d.recipients), 'Open rate')}${stat(d.totalOpens, 'Total opens')}</div>
   <div class="card"><b>Opens per hour</b>${d.timeline.length ? `<div class="bars">${d.timeline.map(t => `<div class="bar" style="height:${t.opens / max * 100}%" title="${fmt(t.hour)}: ${t.opens}"></div>`).join('')}</div>` : '<p class="mute">No opens yet.</p>'}</div>
-  <div class="card"><table><tr><th>Email</th><th>Status</th><th>Opens</th><th>First opened</th><th>Last opened</th></tr>
-  ${d.emails.map(e => `<tr><td>${esc(e.email)}</td><td><span class="pill ${e.openCount ? 'yes' : 'no'}">${e.openCount ? 'Opened' : 'Not opened'}</span></td><td>${e.openCount}</td><td>${fmt(e.firstOpenedAt)}</td>
+  <div class="card"><table><tr><th>Email</th><th>Message id</th><th>Status</th><th>Opens</th><th>First opened</th><th>Last opened</th></tr>
+  ${d.emails.map(e => `<tr><td>${esc(e.email)}</td><td class="mute">${esc(e.parent_id)}</td><td><span class="pill ${e.openCount ? 'yes' : 'no'}">${e.openCount ? 'Opened' : 'Not opened'}</span></td><td>${e.openCount}</td><td>${fmt(e.firstOpenedAt)}</td>
   <td>${fmt(e.lastOpenedAt)}${e.opens.length ? `<details><summary>history</summary><ul>${e.opens.map(o => `<li>${fmt(o.at)}</li>`).join('')}</ul></details>` : ''}</td></tr>`).join('')}</table></div>`;
 }
 route();
