@@ -1,4 +1,4 @@
-module.exports = function buildSpec() {
+module.exports = function buildSpec(baseUrl = process.env.BASE_URL) {
   const err = { description: 'Error', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } };
   return {
     openapi: '3.0.3',
@@ -7,7 +7,7 @@ module.exports = function buildSpec() {
       version: '1.0.0',
       description: 'Create tracking pixels for emails and read open statistics. Opens are recorded when an email client loads the pixel image.',
     },
-    servers: [{ url: process.env.BASE_URL }],
+    servers: [{ url: baseUrl }],
     tags: [{ name: 'Pixels' }, { name: 'Tracking' }, { name: 'Dashboard' }],
     paths: {
       '/api/pixels': {

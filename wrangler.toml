@@ -1,0 +1,11 @@
+name = "email-tracker"            # must match the Worker's name in the Cloudflare dashboard
+main = "worker/index.js"
+compatibility_date = "2025-06-01"
+compatibility_flags = ["nodejs_compat"]
+keep_vars = true                  # don't wipe variables/secrets set in the dashboard on deploy
+
+[vars]
+ENABLE_SWAGGER = "false"
+# Set these as secrets/variables (dashboard or `npx wrangler secret put`):
+#   MONGODB_URI  (secret, required)
+#   BASE_URL     (optional; defaults to the request's own origin)

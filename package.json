@@ -10,7 +10,12 @@
   "dependencies": {
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
+    "hono": "^4.13.21",
+    "mongodb": "^7.9.1",
     "mongoose": "^8.5.0",
     "swagger-ui-express": "^5.0.1"
+  },
+  "devDependencies": {
+    "wrangler": "^4.167.0"
   }
 }
