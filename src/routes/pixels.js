@@ -94,6 +94,7 @@ router.get('/api/parents', async (req, res, next) => {
         $group: {
           _id: '$group',
           messages: { $addToSet: '$parent_id' },
+          emails: { $addToSet: '$email' },
           recipients: { $sum: 1 },
           opened: { $sum: { $cond: [{ $gt: ['$openCount', 0] }, 1, 0] } },
           totalOpens: { $sum: '$openCount' },
@@ -104,7 +105,7 @@ router.get('/api/parents', async (req, res, next) => {
       { $sort: { createdAt: -1 } },
       { $limit: 500 },
     ]);
-    res.json(rows.map(r => ({ parent_id: r._id, messages: r.messages.length, recipients: r.recipients, opened: r.opened, totalOpens: r.totalOpens, createdAt: r.createdAt, lastOpenedAt: r.lastOpenedAt || null })));
+    res.json(rows.map(r => ({ parent_id: r._id, emails: r.emails.filter(Boolean), messages: r.messages.length, recipients: r.recipients, opened: r.opened, totalOpens: r.totalOpens, createdAt: r.createdAt, lastOpenedAt: r.lastOpenedAt || null })));
   } catch (e) { next(e); }
 });
 
